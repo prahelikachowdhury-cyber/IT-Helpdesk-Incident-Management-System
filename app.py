@@ -553,51 +553,59 @@ def my_tickets():
         now=datetime.utcnow()
     )
 
-
 # UPDATE TICKET
-@app.route("/update-ticket/<int:ticket_id>", methods=["POST"])
+@app.route("/update-ticket/<int:ticket_id>", methods=["GET", "POST"])
 @staff_required
 def update_ticket(ticket_id):
 
     ticket = Ticket.query.get_or_404(ticket_id)
 
-    new_status = request.form.get("status")
-    assigned_to_id = request.form.get("assigned_to")
+    staff_members = User.query.filter_by(
+        role="staff"
+    ).order_by(User.name).all()
 
-    if new_status in ["Open", "In Progress", "Resolved"]:
+    if request.method == "POST":
 
-        ticket.status = new_status
+        new_status = request.form.get("status")
+        assigned_to_id = request.form.get("assigned_to")
 
-        if new_status == "Resolved":
-            ticket.resolved_at = datetime.utcnow()
+        if new_status in ["Open", "In Progress", "Resolved"]:
+
+            ticket.status = new_status
+
+            if new_status == "Resolved":
+                ticket.resolved_at = datetime.utcnow()
+            else:
+                ticket.resolved_at = None
+
+        if assigned_to_id:
+            try:
+                staff_id = int(assigned_to_id)
+
+                staff_member = User.query.filter_by(
+                    id=staff_id,
+                    role="staff"
+                ).first()
+
+                if staff_member:
+                    ticket.assigned_to_id = staff_member.id
+
+            except ValueError:
+                pass
         else:
-            ticket.resolved_at = None
+            ticket.assigned_to_id = None
 
-    if assigned_to_id:
+        db.session.commit()
 
-        try:
-            staff_id = int(assigned_to_id)
+        flash("Ticket updated successfully!", "success")
 
-            staff_member = User.query.filter_by(
-                id=staff_id,
-                role="staff"
-            ).first()
+        return redirect(url_for("staff_dashboard"))
 
-            if staff_member:
-                ticket.assigned_to_id = staff_member.id
-
-        except ValueError:
-            pass
-
-    else:
-        ticket.assigned_to_id = None
-
-    db.session.commit()
-
-    flash("Ticket updated successfully!", "success")
-
-    return redirect(url_for("staff_dashboard"))
-
+    return render_template(
+        "update_ticket.html",
+        ticket=ticket,
+        staff_members=staff_members
+    )
 
 # LOGOUT
 @app.route("/logout", methods=["GET", "POST"])
