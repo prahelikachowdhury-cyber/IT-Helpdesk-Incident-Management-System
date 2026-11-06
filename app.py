@@ -26,7 +26,7 @@ os.makedirs(app.instance_path, exist_ok=True)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
 if not app.config["SECRET_KEY"]:
-    raise RuntimeError("SECRET_KEY is missing from .env file")
+    raise RuntimeError("SECRET_KEY is missing from environment variables.")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = (
     "sqlite:///" + str(Path(app.instance_path) / "helpdesk.db")
@@ -139,7 +139,7 @@ with app.app_context():
 
     db.create_all()
 
-    # Add new columns to an existing tickets table.
+    # Check existing ticket table columns
     columns = {
         column["name"]
         for column in inspect(db.engine).get_columns("ticket")
@@ -151,6 +151,7 @@ with app.app_context():
         "resolved_at": "DATETIME"
     }
 
+    # Add missing columns to older databases
     with db.engine.begin() as connection:
 
         for column_name, column_type in migrations.items():
@@ -164,7 +165,7 @@ with app.app_context():
                     )
                 )
 
-    # Give older tickets an SLA deadline if they don't have one.
+    # Add SLA deadlines to older tickets
     old_tickets = Ticket.query.filter(
         Ticket.sla_deadline.is_(None)
     ).all()
@@ -172,12 +173,61 @@ with app.app_context():
     for ticket in old_tickets:
 
         hours = SLA_HOURS.get(ticket.priority, 24)
-
         created = ticket.created_at or datetime.utcnow()
 
         ticket.sla_deadline = created + timedelta(hours=hours)
 
     db.session.commit()
+
+    # CREATE OR UPDATE STAFF ACCOUNT FROM ENVIRONMENT VARIABLES
+    staff_name = (os.getenv("STAFF_NAME") or "").strip()
+    staff_email = (os.getenv("STAFF_EMAIL") or "").strip().lower()
+    staff_password = os.getenv("STAFF_PASSWORD") or ""
+
+    staff_settings = [
+        staff_name,
+        staff_email,
+        staff_password
+    ]
+
+    # All three settings must be provided together
+    if any(staff_settings) and not all(staff_settings):
+        raise RuntimeError(
+            "Set STAFF_NAME, STAFF_EMAIL, and STAFF_PASSWORD together."
+        )
+
+    # Create or update the configured staff account
+    if all(staff_settings):
+
+        if len(staff_password) < 12:
+            raise RuntimeError(
+                "STAFF_PASSWORD must contain at least 12 characters."
+            )
+
+        staff_user = User.query.filter_by(
+            email=staff_email
+        ).first()
+
+        if staff_user is None:
+
+            staff_user = User(
+                name=staff_name,
+                email=staff_email,
+                role="staff"
+            )
+
+            staff_user.set_password(staff_password)
+            db.session.add(staff_user)
+
+        else:
+
+            staff_user.name = staff_name
+            staff_user.role = "staff"
+
+            if not staff_user.check_password(staff_password):
+                staff_user.set_password(staff_password)
+
+        db.session.commit()
 
 
 # HOME PAGE
@@ -209,7 +259,10 @@ def register():
             return redirect(url_for("register"))
 
         if len(password) < 12:
-            flash("Password must contain at least 12 characters.", "error")
+            flash(
+                "Password must contain at least 12 characters.",
+                "error"
+            )
             return redirect(url_for("register"))
 
         if User.query.filter_by(email=email).first():
@@ -268,6 +321,7 @@ def dashboard():
 
     return render_template("dashboard.html")
 
+
 # STAFF DASHBOARD
 @app.route("/staff/dashboard")
 @staff_required
@@ -316,7 +370,7 @@ def staff_dashboard():
         Ticket.created_at.desc()
     ).all()
 
-    # Ticket statistics (based on all tickets)
+    # Ticket statistics
     total_tickets = len(all_tickets)
 
     open_tickets = sum(
@@ -383,6 +437,7 @@ def staff_dashboard():
         selected_status=selected_status
     )
 
+
 # STAFF REPORTS
 @app.route("/staff/reports")
 @staff_required
@@ -396,7 +451,9 @@ def staff_reports():
     for ticket in tickets:
 
         category = ticket.category
-        category_counts[category] = category_counts.get(category, 0) + 1
+        category_counts[category] = (
+            category_counts.get(category, 0) + 1
+        )
 
         issue = ticket.title.strip()
         issue_key = issue.lower()
@@ -421,32 +478,13 @@ def staff_reports():
         reverse=True
     )
 
-    total_tickets = len(tickets)
-
-    open_tickets = sum(
-        1 for ticket in tickets
-        if ticket.status == "Open"
-    )
-
-    in_progress_tickets = sum(
-        1 for ticket in tickets
-        if ticket.status == "In Progress"
-    )
-
-    resolved_tickets = sum(
-        1 for ticket in tickets
-        if ticket.status == "Resolved"
-    )
-
     return render_template(
         "staff_reports.html",
+        total_tickets=len(tickets),
         category_reports=category_reports,
-        issue_reports=issue_reports,
-        total_tickets=total_tickets,
-        open_tickets=open_tickets,
-        in_progress_tickets=in_progress_tickets,
-        resolved_tickets=resolved_tickets
+        issue_reports=issue_reports
     )
+
 
 # CREATE TICKET
 @app.route("/create-ticket", methods=["GET", "POST"])
@@ -457,26 +495,21 @@ def create_ticket():
 
         title = request.form.get("title", "").strip()
         description = request.form.get("description", "").strip()
-        category = request.form.get("category")
-        priority = request.form.get("priority")
+        category = request.form.get("category", "")
+        priority = request.form.get("priority", "Medium")
 
-        allowed_categories = [
-            "Network", "Hardware", "Software", "Account", "Other"
-        ]
-
-        if not title or not description:
+        if not title or not description or not category:
             flash("Please fill in all required fields.", "error")
             return redirect(url_for("create_ticket"))
 
-        if category not in allowed_categories:
-            flash("Invalid category.", "error")
-            return redirect(url_for("create_ticket"))
-
         if priority not in SLA_HOURS:
-            flash("Invalid priority.", "error")
-            return redirect(url_for("create_ticket"))
+            priority = "Medium"
 
-        created = datetime.utcnow()
+        created_time = datetime.utcnow()
+
+        sla_deadline = created_time + timedelta(
+            hours=SLA_HOURS[priority]
+        )
 
         ticket = Ticket(
             title=title,
@@ -485,16 +518,14 @@ def create_ticket():
             priority=priority,
             status="Open",
             user_id=current_user.id,
-            created_at=created,
-            sla_deadline=created + timedelta(
-                hours=SLA_HOURS[priority]
-            )
+            created_at=created_time,
+            sla_deadline=sla_deadline
         )
 
         db.session.add(ticket)
         db.session.commit()
 
-        flash("Your ticket has been submitted!", "success")
+        flash("Ticket created successfully!", "success")
 
         return redirect(url_for("my_tickets"))
 
@@ -508,97 +539,79 @@ def my_tickets():
 
     tickets = Ticket.query.filter_by(
         user_id=current_user.id
-    ).order_by(Ticket.created_at.desc()).all()
+    ).order_by(
+        Ticket.created_at.desc()
+    ).all()
 
     return render_template(
-        "tickets.html",
-        tickets=tickets
+        "my_tickets.html",
+        tickets=tickets,
+        now=datetime.utcnow()
     )
 
 
-# UPDATE AND ASSIGN TICKET
-@app.route("/staff/ticket/<int:ticket_id>", methods=["GET", "POST"])
+# UPDATE TICKET
+@app.route("/update-ticket/<int:ticket_id>", methods=["POST"])
 @staff_required
 def update_ticket(ticket_id):
 
-    ticket = db.get_or_404(Ticket, ticket_id)
+    ticket = Ticket.query.get_or_404(ticket_id)
 
-    staff_members = User.query.filter_by(
-        role="staff"
-    ).order_by(User.name).all()
+    new_status = request.form.get("status")
+    assigned_to_id = request.form.get("assigned_to")
 
-    if request.method == "POST":
-
-        new_status = request.form.get("status")
-        assigned_to = request.form.get("assigned_to")
-
-        allowed_statuses = [
-            "Open",
-            "In Progress",
-            "Resolved"
-        ]
-
-        if new_status not in allowed_statuses:
-            flash("Invalid ticket status.", "error")
-            return redirect(url_for(
-                "update_ticket",
-                ticket_id=ticket.id
-            ))
-
-        if assigned_to:
-
-            staff_member = User.query.filter_by(
-                id=assigned_to,
-                role="staff"
-            ).first()
-
-            if not staff_member:
-                flash("Invalid staff assignment.", "error")
-                return redirect(url_for(
-                    "update_ticket",
-                    ticket_id=ticket.id
-                ))
-
-            ticket.assigned_to_id = staff_member.id
-
-        else:
-            ticket.assigned_to_id = None
+    if new_status in ["Open", "In Progress", "Resolved"]:
 
         ticket.status = new_status
 
         if new_status == "Resolved":
-
-            if ticket.resolved_at is None:
-                ticket.resolved_at = datetime.utcnow()
-
+            ticket.resolved_at = datetime.utcnow()
         else:
             ticket.resolved_at = None
 
-        db.session.commit()
+    if assigned_to_id:
 
-        flash("Ticket updated successfully!", "success")
+        try:
+            staff_id = int(assigned_to_id)
 
-        return redirect(url_for("staff_dashboard"))
+            staff_member = User.query.filter_by(
+                id=staff_id,
+                role="staff"
+            ).first()
 
-    return render_template(
-        "update_ticket.html",
-        ticket=ticket,
-        staff_members=staff_members
-    )
+            if staff_member:
+                ticket.assigned_to_id = staff_member.id
+
+        except ValueError:
+            pass
+
+    else:
+        ticket.assigned_to_id = None
+
+    db.session.commit()
+
+    flash("Ticket updated successfully!", "success")
+
+    return redirect(url_for("staff_dashboard"))
 
 
 # LOGOUT
-@app.route("/logout", methods=["POST"])
+@app.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
 
     logout_user()
 
-    flash("You have logged out successfully.", "success")
+    flash("You have been logged out.", "success")
 
     return redirect(url_for("login"))
 
 
 # RUN APPLICATION
 if __name__ == "__main__":
-    app.run(debug=True)
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )
