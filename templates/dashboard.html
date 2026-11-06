@@ -28,21 +28,21 @@
 
     </form>
 
+    <hr>
+
+    <h3>Ticket Management</h3>
+
+    <a href="{{ url_for('create_ticket') }}">
+        <button type="button">Report a Problem</button>
+    </a>
+
+    <br><br>
+
+    <a href="{{ url_for('my_tickets') }}">
+        <button type="button">View My Tickets</button>
+    </a>
+
 </div>
 
 </body>
 </html>
-
-<hr>
-
-<h3>Ticket Management</h3>
-
-<a href="{{ url_for('create_ticket') }}">
-    <button type="button">Report a Problem</button>
-</a>
-
-<br><br>
-
-<a href="{{ url_for('my_tickets') }}">
-    <button type="button">View My Tickets</button>
-</a>
