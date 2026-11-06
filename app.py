@@ -18,7 +18,11 @@ from sqlalchemy import inspect, text
 # LOAD ENVIRONMENT VARIABLES
 load_dotenv()
 
-app = Flask(__name__, instance_relative_config=True)
+app = Flask(
+    __name__,
+    template_folder=str(Path(__file__).resolve().parent / "templates"),
+    instance_relative_config=True
+)
 os.makedirs(app.instance_path, exist_ok=True)
 
 
