@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Staff Dashboard</title>
+
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>IT Help Desk Dashboard</h1>
+    <h3>Welcome, {{ current_user.name }}</h3>
+
+    <hr>
+
+    <!-- NAVIGATION -->
+    <h2>Quick Navigation</h2>
+
+    <a href="{{ url_for('staff_reports') }}">
+        <button type="button">View Incident Reports</button>
+    </a>
+
+    <hr>
+
+    <!-- SUMMARY CARDS -->
+    <h2>Ticket Overview</h2>
+
+    <div class="dashboard-cards">
+
+        <div class="card">
+            <h3>Total Tickets</h3>
+            <h2>{{ total_tickets }}</h2>
+        </div>
+
+        <div class="card">
+            <h3>Open</h3>
+            <h2>{{ open_tickets }}</h2>
+        </div>
+
+        <div class="card">
+            <h3>In Progress</h3>
+            <h2>{{ in_progress_tickets }}</h2>
+        </div>
+
+        <div class="card">
+            <h3>Resolved</h3>
+            <h2>{{ resolved_tickets }}</h2>
+        </div>
+
+    </div>
+
+    <hr>
+
+    <!-- CATEGORY BREAKDOWN -->
+    <h2>Tickets by Category</h2>
+
+    {% for category, count in category_counts.items() %}
+
+        <p>
+            <strong>{{ category }}:</strong>
+            {{ count }} ticket(s)
+        </p>
+
+    {% endfor %}
+
+    <hr>
+
+    <!-- PRIORITY BREAKDOWN -->
+    <h2>Tickets by Priority</h2>
+
+    {% for priority, count in priority_counts.items() %}
+
+        <p>
+            <strong>{{ priority }}:</strong>
+            {{ count }} ticket(s)
+        </p>
+
+    {% endfor %}
+
+    <hr>
+
+    <!-- VISUAL ANALYTICS -->
+    <h2>Ticket Analytics</h2>
+
+    <div class="chart-container">
+
+        <div class="chart-card">
+            <h3>Tickets by Status</h3>
+            <canvas id="statusChart"></canvas>
+        </div>
+
+        <div class="chart-card">
+            <h3>Tickets by Category</h3>
+            <canvas id="categoryChart"></canvas>
+        </div>
+
+        <div class="chart-card">
+            <h3>Tickets by Priority</h3>
+            <canvas id="priorityChart"></canvas>
+        </div>
+
+    </div>
+
+    <hr>
+
+    <!-- TICKET SEARCH AND FILTERS -->
+
+<hr>
+
+<h2>Search & Filter Tickets</h2>
+
+<form method="GET" action="{{ url_for('staff_dashboard') }}">
+
+    <!-- SEARCH BY TITLE -->
+    <input
+        type="text"
+        name="search"
+        placeholder="Search ticket by title..."
+        value="{{ search_query }}"
+    >
+
+    <!-- CATEGORY FILTER -->
+    <select name="category">
+
+        <option value="">All Categories</option>
+
+        {% for category in ["Network", "Hardware", "Software", "Account", "Other"] %}
+
+            <option value="{{ category }}"
+                {% if selected_category == category %}selected{% endif %}>
+                {{ category }}
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+    <!-- PRIORITY FILTER -->
+    <select name="priority">
+
+        <option value="">All Priorities</option>
+
+        {% for priority in ["Critical", "High", "Medium", "Low"] %}
+
+            <option value="{{ priority }}"
+                {% if selected_priority == priority %}selected{% endif %}>
+                {{ priority }}
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+    <!-- STATUS FILTER -->
+    <select name="status">
+
+        <option value="">All Statuses</option>
+
+        {% for status in ["Open", "In Progress", "Resolved"] %}
+
+            <option value="{{ status }}"
+                {% if selected_status == status %}selected{% endif %}>
+                {{ status }}
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+    <br><br>
+
+    <button type="submit">Apply Filters</button>
+
+    <a href="{{ url_for('staff_dashboard') }}">
+        <button type="button">Clear Filters</button>
+    </a>
+
+</form>
+
+<hr>
+
+<!-- ALL TICKETS -->
+<h2>All Support Tickets</h2>
+
+<p>Showing {{ tickets|length }} ticket(s).</p>
+
+    {% if tickets %}
+
+        {% for ticket in tickets %}
+
+        <div class="ticket">
+
+            <h3>Ticket #{{ ticket.id }}</h3>
+
+            <p>
+                <strong>Title:</strong> {{ ticket.title }}
+            </p>
+
+            <p>
+                <strong>Reported by:</strong>
+                {{ ticket.user.name }}
+            </p>
+
+            <p>
+                <strong>Category:</strong>
+                {{ ticket.category }}
+            </p>
+
+            <p>
+                <strong>Priority:</strong>
+                {{ ticket.priority }}
+            </p>
+
+            <p>
+                <strong>Status:</strong>
+                {{ ticket.status }}
+            </p>
+
+            <p>
+                <strong>Assigned to:</strong>
+                {{ ticket.assigned_staff.name if ticket.assigned_staff else "Not assigned" }}
+            </p>
+
+            <p>
+                <strong>SLA Deadline:</strong>
+                {{ ticket.sla_deadline.strftime("%d-%m-%Y %I:%M %p") if ticket.sla_deadline else "Not set" }}
+            </p>
+
+            {% if ticket.status == "Resolved" %}
+
+                <p>
+                    <strong>SLA Status:</strong> Resolved
+                </p>
+
+                <p>
+                    <strong>Resolved at:</strong>
+                    {{ ticket.resolved_at.strftime("%d-%m-%Y %I:%M %p") if ticket.resolved_at else "Not recorded" }}
+                </p>
+
+            {% elif ticket.sla_deadline and ticket.sla_deadline < now %}
+
+                <p>
+                    <strong>SLA Status:</strong> OVERDUE
+                </p>
+
+            {% else %}
+
+                <p>
+                    <strong>SLA Status:</strong> Within Deadline
+                </p>
+
+            {% endif %}
+
+            <a href="{{ url_for('update_ticket', ticket_id=ticket.id) }}">
+                Manage Ticket
+            </a>
+
+        </div>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No tickets submitted yet.</p>
+
+    {% endif %}
+
+    <hr>
+
+    <!-- LOGOUT -->
+    <form action="{{ url_for('logout') }}" method="POST">
+
+        <input type="hidden" name="csrf_token"
+        value="{{ csrf_token() }}">
+
+        <button type="submit">Logout</button>
+
+    </form>
+
+</div>
+
+
+<!-- CHART.JS LIBRARY -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+    // STATUS DOUGHNUT CHART
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Open', 'In Progress', 'Resolved'],
+            datasets: [{
+                data: [
+                    {{ open_tickets }},
+                    {{ in_progress_tickets }},
+                    {{ resolved_tickets }}
+                ],
+                backgroundColor: [
+                    '#20b2aa',
+                    '#2457a7',
+                    '#70c1b3'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+
+    // CATEGORY BAR CHART
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ category_counts.keys() | list | tojson }},
+            datasets: [{
+                label: 'Number of Tickets',
+                data: {{ category_counts.values() | list | tojson }},
+                backgroundColor: '#20b2aa',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+
+
+    // PRIORITY BAR CHART
+    new Chart(document.getElementById('priorityChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ priority_counts.keys() | list | tojson }},
+            datasets: [{
+                label: 'Number of Tickets',
+                data: {{ priority_counts.values() | list | tojson }},
+                backgroundColor: [
+                    '#d9534f',
+                    '#f0ad4e',
+                    '#20b2aa',
+                    '#70c1b3'
+                ],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Ticket</title>
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<div class="container">
+
+    <h2>Manage Ticket #{{ ticket.id }}</h2>
+
+    <p><strong>Title:</strong> {{ ticket.title }}</p>
+    <p><strong>Description:</strong> {{ ticket.description }}</p>
+    <p><strong>Priority:</strong> {{ ticket.priority }}</p>
+    <p><strong>Current Status:</strong> {{ ticket.status }}</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+
+        <input type="hidden" name="csrf_token"
+        value="{{ csrf_token() }}">
+
+        <label>Assign Staff:</label>
+
+        <select name="assigned_to">
+            <option value="">Not Assigned</option>
+
+            {% for staff in staff_members %}
+                <option value="{{ staff.id }}"
+                {% if ticket.assigned_to_id == staff.id %}selected{% endif %}>
+                    {{ staff.name }}
+                </option>
+            {% endfor %}
+
+        </select>
+
+        <br><br>
+
+        <label>Update Status:</label>
+
+        <select name="status" required>
+            <option value="Open"
+            {% if ticket.status == "Open" %}selected{% endif %}>
+                Open
+            </option>
+
+            <option value="In Progress"
+            {% if ticket.status == "In Progress" %}selected{% endif %}>
+                In Progress
+            </option>
+
+            <option value="Resolved"
+            {% if ticket.status == "Resolved" %}selected{% endif %}>
+                Resolved
+            </option>
+        </select>
+
+        <br><br>
+
+        <button type="submit">Update Ticket</button>
+
+    </form>
+
+    <br>
+
+    <a href="{{ url_for('staff_dashboard') }}">
+        Back to Dashboard
+    </a>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Staff Reports</title>
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<div class="container">
+
+    <h1>IT Incident Reports</h1>
+
+    <h2>Ticket Summary</h2>
+
+    <p>Total Tickets: {{ total_tickets }}</p>
+    <p>Open Tickets: {{ open_tickets }}</p>
+    <p>In Progress: {{ in_progress_tickets }}</p>
+    <p>Resolved Tickets: {{ resolved_tickets }}</p>
+
+    <hr>
+
+    <h2>Problems by Category</h2>
+
+    {% if category_reports %}
+        {% for category, count in category_reports %}
+            <p>{{ category }}: {{ count }} ticket(s)</p>
+        {% endfor %}
+    {% else %}
+        <p>No tickets available.</p>
+    {% endif %}
+
+    <hr>
+
+    <h2>Most Common Problems</h2>
+
+    {% if issue_reports %}
+        {% for issue in issue_reports %}
+            <p>
+                {{ issue.title }}:
+                {{ issue.count }} report(s)
+            </p>
+        {% endfor %}
+    {% else %}
+        <p>No reported problems yet.</p>
+    {% endif %}
+
+    <br>
+
+    <a href="{{ url_for('staff_dashboard') }}">
+        Back to Staff Dashboard
+    </a>
+
+</div>
+</body>
+</html>

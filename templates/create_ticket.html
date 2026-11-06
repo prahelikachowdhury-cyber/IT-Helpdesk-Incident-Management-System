@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Report a Problem</title>
+
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Report a Technical Problem</h1>
+
+    <form method="POST">
+
+        <input type="hidden" name="csrf_token"
+        value="{{ csrf_token() }}">
+
+        <label for="title">Problem Title:</label>
+
+        <input type="text"
+        name="title"
+        id="title"
+        placeholder="Enter problem title"
+        required>
+
+        <br><br>
+
+        <label for="description">Problem Description:</label>
+
+        <textarea
+        name="description"
+        id="description"
+        placeholder="Explain your problem"
+        required></textarea>
+
+        <br><br>
+
+        <label for="category">Category:</label>
+
+        <select name="category" id="category" required>
+
+            <option value="">Select Category</option>
+            <option value="Network">Network</option>
+            <option value="Hardware">Hardware</option>
+            <option value="Software">Software</option>
+            <option value="Account">Account</option>
+            <option value="Other">Other</option>
+
+        </select>
+
+        <br><br>
+
+        <label for="priority">Priority:</label>
+
+        <select name="priority" id="priority" required>
+
+            <option value="">Select Priority</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+
+        </select>
+
+        <br><br>
+
+        <button type="submit">Submit Ticket</button>
+
+    </form>
+
+    <br>
+
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+
+</div>
+
+</body>
+</html>

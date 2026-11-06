@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard | IT Helpdesk</title>
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>IT Helpdesk Dashboard</h1>
+
+    <h3>Welcome, {{ current_user.name }}!</h3>
+
+    <p>Role: {{ current_user.role }}</p>
+
+    <p>Welcome to the IT Helpdesk Management System.</p>
+
+    <form action="{{ url_for('logout') }}" method="POST">
+
+        <input type="hidden" name="csrf_token"
+        value="{{ csrf_token() }}">
+
+        <button type="submit">Logout</button>
+
+    </form>
+
+</div>
+
+</body>
+</html>
+
+<hr>
+
+<h3>Ticket Management</h3>
+
+<a href="{{ url_for('create_ticket') }}">
+    <button type="button">Report a Problem</button>
+</a>
+
+<br><br>
+
+<a href="{{ url_for('my_tickets') }}">
+    <button type="button">View My Tickets</button>
+</a>

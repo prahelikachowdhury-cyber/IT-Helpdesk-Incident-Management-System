@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Tickets</title>
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h2>My Support Tickets</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endwith %}
+
+    {% if tickets %}
+
+        {% for ticket in tickets %}
+
+            <div class="ticket">
+
+                <h3>Ticket #{{ ticket.id }}</h3>
+
+                <p><strong>Title:</strong> {{ ticket.title }}</p>
+
+                <p><strong>Category:</strong> {{ ticket.category }}</p>
+
+                <p><strong>Priority:</strong> {{ ticket.priority }}</p>
+
+                <p><strong>Status:</strong> {{ ticket.status }}</p>
+
+                <p><strong>Created:</strong> {{ ticket.created_at }}</p>
+
+            </div>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>You haven't submitted any tickets yet.</p>
+
+    {% endif %}
+
+    <a href="{{ url_for('create_ticket') }}">Create New Ticket</a>
+
+    <br><br>
+
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+
+</div>
+
+</body>
+</html>
